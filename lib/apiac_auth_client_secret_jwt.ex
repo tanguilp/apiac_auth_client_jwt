@@ -28,8 +28,13 @@ defmodule APIacAuthClientJWT do
 
   ## Plug options
 
+  - `:iat_max_interval`: the maximum time interval, in seconds, before a token with an `"iat"`
+  field is considered too far in the past. Defaults to `30`, which means token emitted longer
+  than 30 seconds ago will be rejected
   - `:client_callback` [**mandatory**]: a callback that returns client configuration from its
   `client_id`. See below for more details
+  - `error_response_verbosity`: one of `:debug`, `:normal` or `:minimal`.
+  Defaults to `:normal`
   - `:protocol`: `:rfc7523` or `:oidc`. Defaults to `:oidc`. When using OpenID Connect, the
   following additional checks are performed:
     - the `"iss"` JWT field must be the client id
@@ -41,6 +46,8 @@ defmodule APIacAuthClientJWT do
     - `"token_endpoint"`: the `"aud"` (and `"sub"` for OIDC) claim of the JWTs must match it
     - `"token_endpoint_auth_signing_alg_values_supported"`: the MAC and signing algorithms
     supported for verifying JWTs
+  - `set_error_response`: function called when authentication failed. Defaults to
+  `APIacAuthClientJWT.send_error_response/3`
 
   Options are documented in `t:opts/0`.
 
@@ -103,10 +110,14 @@ defmodule APIacAuthClientJWT do
   @type opts :: [opt()]
 
   @type opt ::
-          {:client_callback, (client_id :: String.t() -> client_config())}
+          {:iat_max_interval, non_neg_integer()}
+          | {:client_callback, (client_id :: String.t() -> client_config())}
+          | {:error_response_verbosity, :debug | :normal | :minimal}
           | {:protocol, :rfc7523 | :oidc}
           | {:jwt_register, module()}
           | {:server_metadata_callback, (() -> server_metadata())}
+          | {:set_error_response,
+             (Plug.Conn.t(), %APIac.Authenticator.Unauthorized{}, any() -> Plug.Conn.t())}
 
   @type client_config :: %{required(String.t()) => any()}
 
@@ -125,8 +136,11 @@ defmodule APIacAuthClientJWT do
 
     opts =
       opts
-      |> Keyword.put_new(:protocol, :oidc)
+      |> Keyword.put_new(:error_response_verbosity, :normal)
+      |> Keyword.put_new(:iat_max_interval, 30)
       |> Keyword.put_new(:jwt_register, nil)
+      |> Keyword.put_new(:protocol, :oidc)
+      |> Keyword.put_new(:set_error_response, &send_error_response/3)
 
     if opts[:protocol] == :oidc and opts[:jwt_register] == nil,
       do: raise("missing replay protection implementation module, mandatory when OIDC is used")
@@ -194,13 +208,6 @@ defmodule APIacAuthClientJWT do
           %APIac.Authenticator.Unauthorized{authenticator: __MODULE__, reason: reason}
         }
     end
-  end
-
-  @impl APIac.Authenticator
-  def send_error_response(conn, _error, _opts) do
-    conn
-    |> Plug.Conn.send_resp(:unauthorized, "")
-    |> Plug.Conn.halt()
   end
 
   @spec get_client_id(Plug.Conn.t(), String.t()) :: {:ok, String.t()} | {:error, atom()}
@@ -348,9 +355,8 @@ defmodule APIacAuthClientJWT do
       claims["exp"] < now() ->
         {:error, :jwt_claims_expired}
 
-      # FIXME: allow skew
-      claims["iat"] != nil and claims["iat"] > now() ->
-        {:error, :jwt_claims_iat_in_the_future}
+      claims["iat"] != nil and now() - claims["iat"] < opts[:iat_max_interval] ->
+        {:error, :jwt_claims_iat_too_far_in_the_past}
 
       claims["nbf"] != nil and claims["nbf"] > now() ->
         {:error, :jwt_claims_nbf_in_the_future}
@@ -391,6 +397,73 @@ defmodule APIacAuthClientJWT do
     else
       :ok
     end
+  end
+
+  @impl APIac.Authenticator
+  def send_error_response(conn, error, opts) do
+    error_response =
+      case opts[:error_response_verbosity] do
+        :debug ->
+          %{"error" => "invalid_client", "error_description" => Exception.message(error)}
+
+        :normal ->
+          error_description =
+            if error.reason == :credentials_not_found do
+              "JWT credential not found in request"
+            else
+              "Invalid JWT credential"
+            end
+
+          %{"error" => "invalid_client", "error_description" => error_description}
+
+        :minimal ->
+          %{"error" => "invalid_client"}
+      end
+
+    conn
+    |> Plug.Conn.send_resp(:unauthorized, Jason.encode!(error_response))
+    |> Plug.Conn.halt()
+  end
+
+  @doc """
+  Saves failure in a `Plug.Conn.t()`'s private field and returns the `conn`
+
+  See the `APIac.AuthFailureResponseData` module for more information.
+  """
+  @spec save_authentication_failure_response(
+          Plug.Conn.t(),
+          %APIac.Authenticator.Unauthorized{},
+          opts()
+        ) :: Plug.Conn.t()
+  def save_authentication_failure_response(conn, error, opts) do
+    error_response =
+      case opts[:error_response_verbosity] do
+        :debug ->
+          %{"error" => "invalid_client", "error_description" => Exception.message(error)}
+
+        :normal ->
+          error_description =
+            if error.reason == :credentials_not_found do
+              "JWT credential not found in request"
+            else
+              "Invalid JWT credential"
+            end
+
+          %{"error" => "invalid_client", "error_description" => error_description}
+
+        :minimal ->
+          %{"error" => "invalid_client"}
+      end
+
+    failure_response_data = %APIac.AuthFailureResponseData{
+      module: __MODULE__,
+      reason: error.reason,
+      www_authenticate_header: nil,
+      status_code: 400,
+      body: Jason.encode!(error_response)
+    }
+
+    APIac.AuthFailureResponseData.put(conn, failure_response_data)
   end
 
   defp now(), do: System.system_time(:second)
