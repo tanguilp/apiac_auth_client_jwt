@@ -48,7 +48,7 @@ defmodule APIacAuthClientJWTTest do
       auth_req =
         %{
           client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> mac("client1")
+          client_assertion: build_assertion("client1") |> mac("client1") |> IO.inspect()
         }
 
       opts = APIacAuthClientJWT.init(@opts)
