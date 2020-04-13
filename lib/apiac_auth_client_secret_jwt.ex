@@ -39,7 +39,7 @@ defmodule APIacAuthClientJWT do
   following additional checks are performed:
     - the `"iss"` JWT field must be the client id
     - the `"jti"` claim must be present
-  - `:jwt_register`: a module that saves JWTes' `"jti"` until expiration to prevent replay.
+  - `:jti_register`: a module that saves JWTes' `"jti"` until expiration to prevent replay.
   Defaults to `nil`, **mandatory** if the protocol is set to `:oidc`
   - `:server_metadata_callback` [**mandatory**]: OAuth2 / OpenID Connect server metadata. The
   following fields are used:
@@ -82,7 +82,7 @@ defmodule APIacAuthClientJWT do
   Replay protection can be implemented to prevent a JWT from being reused. This is mandatory when
   using OpenID Connect.
 
-  The `:jwt_register` allows configuring a module that implements the
+  The `:jti_register` allows configuring a module that implements the
   `APIacAuthClientJWT.JTIRegister` behaviour.
 
   The `APIacAuthClientJWT` library provides with a basic implementation for testing purpose only:
@@ -114,7 +114,7 @@ defmodule APIacAuthClientJWT do
           | {:client_callback, (client_id :: String.t() -> client_config())}
           | {:error_response_verbosity, :debug | :normal | :minimal}
           | {:protocol, :rfc7523 | :oidc}
-          | {:jwt_register, module()}
+          | {:jti_register, module()}
           | {:server_metadata_callback, (() -> server_metadata())}
           | {:set_error_response,
              (Plug.Conn.t(), %APIac.Authenticator.Unauthorized{}, any() -> Plug.Conn.t())}
@@ -128,28 +128,28 @@ defmodule APIacAuthClientJWT do
 
   @impl Plug
   def init(opts) do
-    unless opts[:client_callback] || not is_function(opts[:client_callback], 1),
+    unless opts[:client_callback] || is_function(opts[:client_callback], 1),
       do: raise("missing mandatory client callback")
 
-    unless opts[:server_metadata_callback] || not is_function(opts[:server_metadata_callback], 0),
+    unless opts[:server_metadata_callback] || is_function(opts[:server_metadata_callback], 0),
       do: raise("missing mandatory server metadata callback")
 
     opts =
       opts
       |> Keyword.put_new(:error_response_verbosity, :normal)
       |> Keyword.put_new(:iat_max_interval, 30)
-      |> Keyword.put_new(:jwt_register, nil)
+      |> Keyword.put_new(:jti_register, nil)
       |> Keyword.put_new(:protocol, :oidc)
       |> Keyword.put_new(:set_error_response, &send_error_response/3)
 
-    if opts[:protocol] == :oidc and opts[:jwt_register] == nil,
+    if opts[:protocol] == :oidc and opts[:jti_register] == nil,
       do: raise("missing replay protection implementation module, mandatory when OIDC is used")
 
     opts
   end
 
   @impl Plug
-  def call(conn, %{} = opts) do
+  def call(conn, opts) do
     if APIac.authenticated?(conn) do
       conn
     else
@@ -192,12 +192,17 @@ defmodule APIacAuthClientJWT do
          server_metadata = opts[:server_metadata_callback].(),
          verification_algs = verification_algs(client_config, server_metadata),
          verification_keys = verification_keys(client_config, verification_algs),
-         {:ok, jwt_claims} <- verify_jwt(client_assertion, verification_keys, verification_keys),
+         {:ok, jwt_claims} <- verify_jwt(client_assertion, verification_keys, verification_algs),
          :ok <- validate_claims(jwt_claims, server_metadata, opts),
          :ok <- check_jwt_not_replayed(jwt_claims, opts) do
       if jwt_claims["jti"] && opts[:jti_register] do
-        opts[:jti_register].(jwt_claims["jti"], jwt_claims["exp"])
+        opts[:jti_register].register(jwt_claims["jti"], jwt_claims["exp"])
       end
+
+      conn =
+        conn
+        |> Plug.Conn.put_private(:apiac_authenticator, __MODULE__)
+        |> Plug.Conn.put_private(:apiac_client, client_id)
 
       {:ok, conn}
     else
@@ -355,7 +360,7 @@ defmodule APIacAuthClientJWT do
       claims["exp"] < now() ->
         {:error, :jwt_claims_expired}
 
-      claims["iat"] != nil and now() - claims["iat"] < opts[:iat_max_interval] ->
+      claims["iat"] != nil and now() - claims["iat"] > opts[:iat_max_interval] ->
         {:error, :jwt_claims_iat_too_far_in_the_past}
 
       claims["nbf"] != nil and claims["nbf"] > now() ->
@@ -387,9 +392,9 @@ defmodule APIacAuthClientJWT do
   defp check_jwt_not_replayed(jwt_claims, opts) do
     # at this point:
     # - any JWT used within the OIDC protocol without jti has been rejected
-    # - the :jwt_register is necessarily set when used with OIDC
-    if jwt_claims["jti"] && opts[:jwt_register] do
-      if opts[:jwt_register].registered?(jwt_claims["jti"]) do
+    # - the :jti_register is necessarily set when used with OIDC
+    if jwt_claims["jti"] && opts[:jti_register] do
+      if opts[:jti_register].registered?(jwt_claims["jti"]) do
         {:error, :jwt_replayed}
       else
         :ok
@@ -421,6 +426,7 @@ defmodule APIacAuthClientJWT do
       end
 
     conn
+    |> Plug.Conn.put_resp_header("content-type", "application/json")
     |> Plug.Conn.send_resp(:unauthorized, Jason.encode!(error_response))
     |> Plug.Conn.halt()
   end
