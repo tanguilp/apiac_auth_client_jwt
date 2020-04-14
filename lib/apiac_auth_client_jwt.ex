@@ -203,6 +203,7 @@ defmodule APIacAuthClientJWT do
         conn
         |> Plug.Conn.put_private(:apiac_authenticator, __MODULE__)
         |> Plug.Conn.put_private(:apiac_client, client_id)
+        |> Plug.Conn.put_private(:apiac_metadata, jwt_claims)
 
       {:ok, conn}
     else
@@ -217,18 +218,22 @@ defmodule APIacAuthClientJWT do
 
   @spec get_client_id(Plug.Conn.t(), String.t()) :: {:ok, String.t()} | {:error, atom()}
   defp get_client_id(conn, client_assertion) do
-    jwt_issuer =
+    jwt_sub =
       client_assertion
       |> JOSE.JWS.peek_payload()
       |> Jason.decode!()
-      |> Map.get("iss")
+      |> Map.get("sub")
 
     case conn.body_params do
-      %{"client_id" => client_id} when client_id != jwt_issuer ->
+      %{"client_id" => client_id} when client_id != jwt_sub ->
         {:error, :client_id_jwt_issuer_mismatch}
 
       _ ->
-        {:ok, jwt_issuer}
+        if jwt_sub do
+          {:ok, jwt_sub}
+        else
+          {:error, :jwt_claims_missing_field_sub}
+        end
     end
   rescue
     _ ->
@@ -260,6 +265,9 @@ defmodule APIacAuthClientJWT do
 
         "private_key_jwt" ->
           alg in @jws_sig_algs
+
+        _ ->
+          []
       end
     end)
   end
@@ -272,6 +280,9 @@ defmodule APIacAuthClientJWT do
 
       "private_key_jwt" ->
         client_asymmetric_keys(client_config)
+
+      _ ->
+        []
     end
     |> JOSEUtils.JWKS.verification_keys(algs)
   end
@@ -280,7 +291,7 @@ defmodule APIacAuthClientJWT do
   defp client_mac_jwks(client_config) do
     mac_jwks =
       Enum.filter(
-        client_config["jwks"] || [],
+        client_config["jwks"]["keys"] || [],
         fn jwk -> jwk["kty"] == "oct" end
       )
 
@@ -296,7 +307,7 @@ defmodule APIacAuthClientJWT do
   @spec client_asymmetric_keys(client_config) :: [JOSEUtils.JWK.t()]
   defp client_asymmetric_keys(client_config) do
     case client_config do
-      %{"jwks" => jwks} ->
+      %{"jwks" => %{"keys" => jwks}} ->
         Enum.filter(jwks, fn jwk -> jwk["kty"] != "oct" end)
 
       %{"jwks_uri" => jwks_uri} ->
@@ -331,7 +342,7 @@ defmodule APIacAuthClientJWT do
         end
 
       :error ->
-        {:error, :invalid_mac}
+        {:error, :invalid_mac_or_signature}
     end
   end
 
@@ -427,7 +438,7 @@ defmodule APIacAuthClientJWT do
 
     conn
     |> Plug.Conn.put_resp_header("content-type", "application/json")
-    |> Plug.Conn.send_resp(:unauthorized, Jason.encode!(error_response))
+    |> Plug.Conn.send_resp(400, Jason.encode!(error_response))
     |> Plug.Conn.halt()
   end
 
