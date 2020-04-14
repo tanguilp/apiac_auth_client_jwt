@@ -29,7 +29,7 @@ defmodule APIacAuthClientJWT.Support.Callbacks do
       "token_endpoint_auth_method" => "client_secret_jwt",
       "client_secret" => "client 3's secret",
       "jwks" => %{
-        "keys" =>  [
+        "keys" => [
           %{
             "crv" => "P-256",
             "d" => "4NQaM2vcBj5so8Bk5NZAJl8k3GXuyjVgCHlf7r1QrQI",

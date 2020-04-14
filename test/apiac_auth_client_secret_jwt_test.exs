@@ -45,11 +45,10 @@ defmodule APIacAuthClientJWTTest do
 
   describe "successful client authentication" do
     test "MACed JWT" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts)
 
@@ -64,11 +63,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "signed JWT" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client2") |> sign("client2")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client2") |> sign("client2")
+      }
 
       opts = APIacAuthClientJWT.init(@opts)
 
@@ -83,11 +81,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "claims are forwared" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1", %{"claim_1" => 42}) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1", %{"claim_1" => 42}) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts)
 
@@ -99,10 +96,9 @@ defmodule APIacAuthClientJWTTest do
 
   describe "invalid assertion" do
     test "missing" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -115,11 +111,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "malformed" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: "a.b.c.d"
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: "a.b.c.d"
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -132,11 +127,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "invalid MAC" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> mac("client3")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> mac("client3")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -149,11 +143,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "invalid signature" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client2") |> sign("client3")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client2") |> sign("client3")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -168,11 +161,10 @@ defmodule APIacAuthClientJWTTest do
 
   describe "errors: invalid or missing claims" do
     test "missing iss claim" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> Map.delete(:iss) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> Map.delete(:iss) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -185,11 +177,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "missing sub claim" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> Map.delete(:sub) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> Map.delete(:sub) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -202,11 +193,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "missing aud claim" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> Map.delete(:aud) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> Map.delete(:aud) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -219,11 +209,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "missing jti claim when OIDC is used" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> Map.delete(:jti) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> Map.delete(:jti) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -236,11 +225,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "OIDC: iss is not set to the client id" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1", %{iss: "client99"}) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1", %{iss: "client99"}) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -253,12 +241,11 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "client id in assertion and body differ" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> mac("client1"),
-          client_id: "client2"
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> mac("client1"),
+        client_id: "client2"
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -271,11 +258,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "audience is incorrect" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1", %{aud: "incorrect"}) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1", %{aud: "incorrect"}) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -288,11 +274,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "exp is in the past" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1", %{exp: now() - 1}) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1", %{exp: now() - 1}) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -305,11 +290,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "nbf is in the future" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1", %{nbf: now() + 1}) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1", %{nbf: now() + 1}) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -322,11 +306,10 @@ defmodule APIacAuthClientJWTTest do
     end
 
     test "iat is in too far in the past" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1", %{iat: now() - 60}) |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1", %{iat: now() - 60}) |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts_oidc)
 
@@ -341,11 +324,10 @@ defmodule APIacAuthClientJWTTest do
 
   describe "jti claim" do
     test "JWT used twice is rejected" do
-      auth_req =
-        %{
-          client_assertion_type: @assertion_type,
-          client_assertion: build_assertion("client1") |> mac("client1")
-        }
+      auth_req = %{
+        client_assertion_type: @assertion_type,
+        client_assertion: build_assertion("client1") |> mac("client1")
+      }
 
       opts = APIacAuthClientJWT.init(@opts)
 
