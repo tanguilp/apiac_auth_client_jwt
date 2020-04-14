@@ -43,11 +43,11 @@ defmodule APIacAuthClientJWT do
   Defaults to `nil`, **mandatory** if the protocol is set to `:oidc`
   - `:server_metadata_callback` [**mandatory**]: OAuth2 / OpenID Connect server metadata. The
   following fields are used:
-    - `"token_endpoint"`: the `"aud"` (and `"sub"` for OIDC) claim of the JWTs must match it
+    - `"token_endpoint"`: the `"aud"` claim of the JWTs must match it
     - `"token_endpoint_auth_signing_alg_values_supported"`: the MAC and signing algorithms
     supported for verifying JWTs
   - `set_error_response`: function called when authentication failed. Defaults to
-  `APIacAuthClientJWT.send_error_response/3`
+  `send_error_response/3`
 
   Options are documented in `t:opts/0`.
 
@@ -87,6 +87,15 @@ defmodule APIacAuthClientJWT do
 
   The `APIacAuthClientJWT` library provides with a basic implementation for testing purpose only:
   `APIacAuthClientJWT.JTIRegister.ETS`.
+
+  ## Example
+
+  ```elixir
+  plug APIacAuthClientJWT,
+    client_callback: &MyApp.Client.config/1,
+    protocol: :rfc7523,
+    server_metadata_callback: &MyApp.metadata.get/0
+  ```
   """
 
   @assertion_type "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
@@ -157,7 +166,7 @@ defmodule APIacAuthClientJWT do
     end
   end
 
-  def do_call(conn, opts) do
+  defp do_call(conn, opts) do
     with {:ok, conn, credentials} <- extract_credentials(conn, opts),
          {:ok, conn} <- validate_credentials(conn, credentials, opts) do
       conn
@@ -443,7 +452,7 @@ defmodule APIacAuthClientJWT do
   end
 
   @doc """
-  Saves failure in a `Plug.Conn.t()`'s private field and returns the `conn`
+  Saves failure in a `t:Plug.Conn.t/0`'s private field and returns the `conn`
 
   See the `APIac.AuthFailureResponseData` module for more information.
   """
