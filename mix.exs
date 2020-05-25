@@ -6,7 +6,7 @@ defmodule APIacAuthClientJWT.MixProject do
       app: :apiac_auth_client_jwt,
       description: "APIac Elixir plug that implements RFC7523 client JWT authentication",
       elixirc_paths: elixirc_paths(Mix.env()),
-      version: "1.0.0",
+      version: "1.1.0",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
