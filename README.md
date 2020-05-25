@@ -58,8 +58,9 @@ Defaults to `:normal`
 following additional checks are performed:
   - the `"iss"` JWT field must be the client id
   - the `"jti"` claim must be present
-- `:jti_register`: a module that saves JWTes' `"jti"` until expiration to prevent replay.
-Defaults to `nil`, **mandatory** if the protocol is set to `:oidc`
+- `:jti_register`: a module implementing the
+[`JTIRegister`](https://hexdocs.pm/jti_register/JTIRegister.html) behaviour, to protect
+against token replay. Defaults to `nil`, **mandatory** if the protocol is set to `:oidc`
 - `:server_metadata_callback` [**mandatory**]: OAuth2 / OpenID Connect server metadata. The
 following fields are used:
   - `"token_endpoint"`: the `"aud"` claim of the JWTs must match it
@@ -100,7 +101,7 @@ Replay protection can be implemented to prevent a JWT from being reused. This is
 using OpenID Connect.
 
 The `:jti_register` allows configuring a module that implements the
-`APIacAuthClientJWT.JTIRegister` behaviour.
+[`JTIRegister`](https://hexdocs.pm/jti_register/JTIRegister.html) behaviour.
 
-The `APIacAuthClientJWT` library provides with a basic implementation for testing purpose only:
-`APIacAuthClientJWT.JTIRegister.ETS`.
+The [`JTIRegister.ETS`](https://hexdocs.pm/jti_register/JTIRegister.ETS.html) implementation
+provides with a basic implementation for single node servers.

@@ -6,7 +6,7 @@ defmodule APIacAuthClientJWTTest do
 
   @opts [
     client_callback: &Callbacks.client/1,
-    jti_register: APIacAuthClientJWT.JTIRegister.ETS,
+    jti_register: JTIRegister.ETS,
     server_metadata_callback: &Callbacks.server_metadata/0,
     error_response_verbosity: :debug
   ]

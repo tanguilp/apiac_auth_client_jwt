@@ -33,6 +33,7 @@ defmodule APIacAuthClientJWT.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
       {:jose_utils, "~> 0.1.0"},
+      {:jti_register, "~> 0.1.0", only: [:test]},
       {:jwks_uri_updater, "~> 1.0"}
     ]
   end
