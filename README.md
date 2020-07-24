@@ -31,7 +31,7 @@ refining RFC7523.
 ```elixir
 def deps do
   [
-    {:apiac_auth_client_jwt, "~> 1.0"}
+    {:apiac_auth_client_jwt, "~> 1.2"}
   ]
 end
 ```

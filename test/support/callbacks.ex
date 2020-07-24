@@ -2,7 +2,7 @@ defmodule APIacAuthClientJWT.Support.Callbacks do
   def client("client1") do
     %{
       "token_endpoint_auth_method" => "client_secret_jwt",
-      "client_secret" => "client 1's secret"
+      "client_secret" => "client 1's secret is of 32 chars"
     }
   end
 

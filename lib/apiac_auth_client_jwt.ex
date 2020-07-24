@@ -257,7 +257,7 @@ defmodule APIacAuthClientJWT do
 
     cond do
       client_alg == "none" ->
-        "illegal client `token_endpoint_auth_signing_alg` used: `none`"
+        raise "illegal client `token_endpoint_auth_signing_alg` used: `none`"
 
       client_alg in server_algs ->
         [client_alg]
